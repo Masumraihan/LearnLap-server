@@ -1,18 +1,35 @@
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
+const jwt = require("jsonwebtoken")
 const app = express();
 const port = process.env.PORT || 5000;
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 //middleware
 app.use(cors());
 app.use(express.json());
 
-app.get("/", (req, res) => {
-  res.send("learn-lab server is running");
-});
+const verifyJWT = (req,res,next) => {
+  const {authorization} = req.headers;
+  if (!authorization) {
+    return res.status(401).send({error:true,message:"unauthorized access"})
+  }
+  const token = authorization.split(" ")[1];
+  if (!token) {
+    return res.status(401).send({error:true, message:"unauthorized access"})
+  }
+  jwt.verify(token,process.env.TOKEN_SECRET,(err,decode) => {
+    if (err) {
+      return res.status(401).send({error:true,message:"unauthorized access"})
+    }
+    req.decode === decode
+    next()
+  })
+}
 
-const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+
+
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.dgzmwwl.mongodb.net/?retryWrites=true&w=majority`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -34,6 +51,13 @@ async function run() {
     const caresCollection = client
       .db("toysCollection")
       .collection("customerCares");
+
+      // sign JWT
+      app.post("/jwt", async(req,res) => {
+        const email = req.body;
+        const token = jwt.sign(email,process.env.TOKEN_SECRET,{expiresIn:"1h"});
+        res.send(token)
+      })
 
     app.get("/toys", async (req, res) => {
       let query = {};
@@ -88,7 +112,7 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/myToys", async (req, res) => {
+    app.get("/myToys",verifyJWT, async (req, res) => {
       let sortBy = 1;
       let query = {};
       if (req.query?.email) {
