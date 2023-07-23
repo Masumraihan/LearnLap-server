@@ -68,6 +68,12 @@ async function run() {
       res.send(result);
     });
 
+    // get total toys for pagination
+    app.get("/totalToys", async(req,res)=> {
+      const result = await toyCollection.estimatedDocumentCount();
+      res.send({totalToys:result})
+    })
+
     app.get("/gallery", async (req, res) => {
       const result = await toyCollection
         .find()
@@ -91,9 +97,15 @@ async function run() {
         query = { toyName: { $regex: req.query?.searchText, $options: "i" } };
       }
 
+      const page = parseInt(req.query.page);
+      const limit = parseInt(req.query.limit);
+      const skip = (page-1) * limit;
+      
+
       const result = await toyCollection
         .find(query)
-        .limit(20)
+        .skip(skip)
+        .limit(limit)
         .project({
           toyName: 1,
           category: 1,
